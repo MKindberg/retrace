@@ -3,7 +3,12 @@
     .version = "0.0.0",
     .fingerprint = 0x49dba22996814ca9, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0",
-    .dependencies = .{},
+    .dependencies = .{
+        .sqlite3 = .{
+            .url = "git+https://github.com/allyourcodebase/sqlite3#7a615f5af79009cd733e3480658586d9b0d28b35",
+            .hash = "sqlite3-3.53.2-DMxLWuAOAAA_Px0arJOIOaP4AKEu5prbsQgPMA35W1zz",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

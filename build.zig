@@ -15,6 +15,13 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
+    const sqlite3 = b.dependency("sqlite3", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const sqlite3_lib = sqlite3.artifact("sqlite3");
+    exe.root_module.linkLibrary(sqlite3_lib);
+
     const run_step = b.step("run", "Run the app");
 
     const run_cmd = b.addRunArtifact(exe);
