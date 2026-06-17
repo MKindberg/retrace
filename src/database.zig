@@ -64,7 +64,7 @@ pub const Database = struct {
     pub fn createTable(self: *Self, allocator: std.mem.Allocator, name: []const u8) !void {
         // The risk of injections through the name of a path feels low enough to be acecptable
         // since bind cannot be used for table names.
-        const query = std.fmt.allocPrintSentinel(allocator, "CREATE TABLE IF NOT EXISTS \"{s}\" (id INTEGER PRIMARY KEY, command TEXT NOT NULL);", .{name}, 0) catch unreachable;
+        const query = std.fmt.allocPrintSentinel(allocator, "CREATE TABLE IF NOT EXISTS \"{s}\" (id INTEGER PRIMARY KEY, command TEXT NOT NULL, timestamp DEFAULT (datetime('now')));", .{name}, 0) catch unreachable;
         defer allocator.free(query);
         _ = try codeToError(c.sqlite3_exec(self.db, query, null, null, null));
     }
