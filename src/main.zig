@@ -6,10 +6,14 @@ const Database = @import("database.zig").Database;
 const Command = enum {
     Add,
     List,
+    Remove,
     Help,
 };
 
 const Config = struct {
+    max_commands_per_dir: usize = 0,
+    max_age_days: usize = 0,
+
     const Self = @This();
 
     const Error = error{
@@ -36,6 +40,8 @@ const Config = struct {
         };
         defer gpa.free(config_data);
         var it = std.mem.splitScalar(u8, config_data, '\n');
+
+        var res = Self{};
         while (it.next()) |line| {
             const l = std.mem.trimStart(u8, line, &std.ascii.whitespace);
             if (std.mem.startsWith(u8, l, "//")) continue;
@@ -45,10 +51,15 @@ const Config = struct {
             const key = std.mem.trim(u8, l[0..eq_idx], " ");
             const value = std.mem.trim(u8, l[eq_idx + 1 ..], " ");
 
-            _ = key;
-            _ = value;
+            if (std.mem.eql(u8, key, "max_commands_per_dir")) {
+                res.max_commands_per_dir = std.fmt.parseInt(usize, value, 10) catch return Error.InvalidConfig;
+            } else if (std.mem.eql(u8, key, "max_age_days")) {
+                res.max_age_days = std.fmt.parseInt(usize, value, 10) catch return Error.InvalidConfig;
+            } else {
+                return Error.InvalidConfig;
+            }
         }
-        return Self{};
+        return res;
     }
 };
 
@@ -59,7 +70,6 @@ pub fn main(init: std.process.Init) !u8 {
     _ = args.skip();
 
     const config = try Config.init(init.gpa, init.io, init.minimal.environ);
-    _ = config;
 
     const command_str = args.next() orelse {
         printHelp();
@@ -85,10 +95,17 @@ pub fn main(init: std.process.Init) !u8 {
         .Add => {
             try db.createTable(init.gpa, dir);
             try db.insert(init.gpa, dir, entry);
+            if (config.max_commands_per_dir != 0)
+                try db.pruneNum(init.gpa, dir, config.max_commands_per_dir);
+            if (config.max_age_days != 0)
+                try db.pruneAge(init.gpa, dir, config.max_age_days);
         },
         .List => {
             const res = try db.fetch(init.arena.allocator(), dir);
             for (res.items) |r| std.debug.print("{s}\n", .{r});
+        },
+        .Remove => {
+            try db.deleteCommand(init.gpa, entry);
         },
         .Help => {
             printHelp();
