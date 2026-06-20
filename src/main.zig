@@ -13,6 +13,7 @@ const Command = enum {
 const Config = struct {
     max_commands_per_dir: usize = 0,
     max_age_days: usize = 0,
+    database_location: [:0]const u8 = ".",
 
     const Self = @This();
 
@@ -21,13 +22,21 @@ const Config = struct {
     };
 
     fn init(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ) !Self {
+        var res = Self{};
+
+        if (environ.getPosix("XDG_CONFIG_HOME")) |database_home| {
+            res.database_location = std.fmt.allocPrintSentinel(gpa, "{s}/retrace/retrace.sqlite", .{database_home}, 0) catch unreachable;
+        } else if (environ.getPosix("HOME")) |home| {
+            res.database_location = std.fmt.allocPrintSentinel(gpa, "{s}/.config/retrace/retrace.sqlite", .{home}, 0) catch unreachable;
+        }
+
         const config_path = config_path: {
             if (environ.getPosix("XDG_CONFIG_HOME")) |config_home| {
                 break :config_path std.fmt.allocPrint(gpa, "{s}/retrace/config", .{config_home}) catch unreachable;
             } else if (environ.getPosix("HOME")) |home| {
                 break :config_path std.fmt.allocPrint(gpa, "{s}/.config/retrace/config", .{home}) catch unreachable;
             } else {
-                return Self{};
+                return res;
             }
         };
         defer gpa.free(config_path);
@@ -41,7 +50,6 @@ const Config = struct {
         defer gpa.free(config_data);
         var it = std.mem.splitScalar(u8, config_data, '\n');
 
-        var res = Self{};
         while (it.next()) |line| {
             const l = std.mem.trimStart(u8, line, &std.ascii.whitespace);
             if (std.mem.startsWith(u8, l, "//")) continue;
@@ -55,6 +63,8 @@ const Config = struct {
                 res.max_commands_per_dir = std.fmt.parseInt(usize, value, 10) catch return Error.InvalidConfig;
             } else if (std.mem.eql(u8, key, "max_age_days")) {
                 res.max_age_days = std.fmt.parseInt(usize, value, 10) catch return Error.InvalidConfig;
+            } else if (std.mem.eql(u8, key, "database_location")) {
+                res.database_location = std.fmt.allocPrintSentinel(gpa, "{s}", .{key}, 0) catch unreachable;
             } else {
                 return Error.InvalidConfig;
             }
@@ -63,7 +73,8 @@ const Config = struct {
     }
 };
 
-fn printHelp() void {}
+fn printHelp() void {
+}
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -81,18 +92,18 @@ pub fn main(init: std.process.Init) !u8 {
         return 1;
     };
 
-    const entry = args.next() orelse {
-        printHelp();
-        return 1;
-    };
-
-    var db = try Database.init("db.sqlite");
+    var db = try Database.init(config.database_location);
     defer db.deinit() catch unreachable;
     const dir = std.Io.Dir.cwd().realPathFileAlloc(init.io, ".", init.gpa) catch unreachable;
     defer init.gpa.free(dir);
 
     switch (command) {
         .Add => {
+            const entry = args.next() orelse {
+                printHelp();
+                return 1;
+            };
+
             try db.createTable(init.gpa, dir);
             try db.insert(init.gpa, dir, entry);
             if (config.max_commands_per_dir != 0)
@@ -105,6 +116,10 @@ pub fn main(init: std.process.Init) !u8 {
             for (res.items) |r| std.debug.print("{s}\n", .{r});
         },
         .Remove => {
+            const entry = args.next() orelse {
+                printHelp();
+                return 1;
+            };
             try db.deleteCommand(init.gpa, entry);
         },
         .Help => {
