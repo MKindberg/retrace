@@ -4,10 +4,10 @@ const Io = std.Io;
 const Database = @import("database.zig").Database;
 
 const Command = enum {
-    Add,
-    List,
-    Remove,
-    Help,
+    add,
+    list,
+    remove,
+    help,
 };
 
 const Config = struct {
@@ -73,8 +73,7 @@ const Config = struct {
     }
 };
 
-fn printHelp() void {
-}
+fn printHelp() void {}
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -98,7 +97,7 @@ pub fn main(init: std.process.Init) !u8 {
     defer init.gpa.free(dir);
 
     switch (command) {
-        .Add => {
+        .add => {
             const entry = args.next() orelse {
                 printHelp();
                 return 1;
@@ -111,18 +110,18 @@ pub fn main(init: std.process.Init) !u8 {
             if (config.max_age_days != 0)
                 try db.pruneAge(init.gpa, dir, config.max_age_days);
         },
-        .List => {
+        .list => {
             const res = try db.fetch(init.arena.allocator(), dir);
             for (res.items) |r| std.debug.print("{s}\n", .{r});
         },
-        .Remove => {
+        .remove => {
             const entry = args.next() orelse {
                 printHelp();
                 return 1;
             };
             try db.deleteCommand(init.gpa, entry);
         },
-        .Help => {
+        .help => {
             printHelp();
             return 1;
         },
