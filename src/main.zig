@@ -155,7 +155,15 @@ pub fn main(init: std.process.Init) !u8 {
         },
         .list => {
             const res = try db.fetch(init.arena.allocator(), dir);
-            for (res.items) |r| std.debug.print("{s}\n", .{r});
+
+            var stdout_buffer: [1024]u8 = undefined;
+            var stdout_file_writer: Io.File.Writer = .init(.stdout(), init.io, &stdout_buffer);
+            const stdout_writer = &stdout_file_writer.interface;
+
+            for (res.items) |r| try stdout_writer.print("{s}\n", .{r});
+
+            try stdout_writer.flush();
+
         },
         .remove => |entry| {
             try db.deleteCommand(init.gpa, entry);
