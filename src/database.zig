@@ -69,7 +69,18 @@ pub const Database = struct {
         _ = try codeToError(c.sqlite3_exec(self.db, query, null, null, null));
     }
 
-    pub fn insert(self: *Self, allocator: std.mem.Allocator, table: []const u8, command: [:0]const u8) !void {
+    pub fn insert(self: *Self, allocator: std.mem.Allocator, table: []const u8, command: [:0]const u8, store_duplicates: bool) !void {
+        if (!store_duplicates) {
+            const delete_query = std.fmt.allocPrintSentinel(allocator, "DELETE FROM \"{s}\" WHERE command = ?;", .{table}, 0) catch unreachable;
+            defer allocator.free(delete_query);
+
+            var delete_stmt: ?*c.sqlite3_stmt = null;
+            if (c.sqlite3_prepare_v2(self.db, delete_query, -1, &delete_stmt, null) != 0) return;
+            defer _ = c.sqlite3_finalize(delete_stmt);
+
+            _ = try codeToError(c.sqlite3_bind_text(delete_stmt, 1, command.ptr, @intCast(command.len), null));
+            _ = try codeToError(c.sqlite3_step(delete_stmt));
+        }
         const query = std.fmt.allocPrintSentinel(allocator, "INSERT INTO \"{s}\" (command) VALUES (?);", .{table}, 0) catch unreachable;
         defer allocator.free(query);
 

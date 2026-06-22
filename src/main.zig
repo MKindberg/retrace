@@ -14,6 +14,7 @@ const Config = struct {
     max_commands_per_dir: usize = 0,
     max_age_days: usize = 0,
     database_location: [:0]const u8 = "retrace.sqlite",
+    store_duplicates: bool = false,
 
     const Self = @This();
 
@@ -65,6 +66,12 @@ const Config = struct {
                 res.max_age_days = std.fmt.parseInt(usize, value, 10) catch return Error.InvalidConfig;
             } else if (std.mem.eql(u8, key, "database_location")) {
                 res.database_location = std.fmt.allocPrintSentinel(p.arena.allocator(), "{s}", .{key}, 0) catch unreachable;
+            } else if (std.mem.eql(u8, key, "store_duplicates")) {
+                if (std.mem.eql(u8, key, "true")) {
+                    res.store_duplicates = true;
+                } else if (std.mem.eql(u8, key, "false")) {
+                    res.store_duplicates = false;
+                } else return Error.InvalidConfig;
             } else {
                 return Error.InvalidConfig;
             }
@@ -149,7 +156,7 @@ pub fn main(init: std.process.Init) !u8 {
             if (std.mem.find(u8, entry, "retrace") != null and std.mem.find(u8, entry, "--remove") != null)
                 return 0;
             try db.createTable(init.gpa, dir);
-            try db.insert(init.gpa, dir, entry);
+            try db.insert(init.gpa, dir, entry, config.store_duplicates);
             if (config.max_commands_per_dir != 0)
                 try db.pruneNum(init.gpa, dir, config.max_commands_per_dir);
             if (config.max_age_days != 0)
