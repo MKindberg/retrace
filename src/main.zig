@@ -74,6 +74,19 @@ const Config = struct {
 };
 
 fn printHelp() noreturn {
+    std.debug.print(
+        \\Store and view history per directory
+        \\
+        \\Usage: retrace [OPTIONS]
+        \\
+        \\Options:
+        \\  --directory <DIR>           Directory to work with (defaults to $PWD)
+        \\  --add <COMMAND>             Add <COMMAND> to history of selected dir
+        \\  --remove <COMMAND>          Remove <COMMAND> from all histories
+        \\  --list                      List history for selected directory (Default if no option is provided)
+        \\  --help                      Show this help
+    , .{});
+
     std.process.exit(1);
 }
 
