@@ -146,6 +146,8 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (command orelse .list) {
         .add => |entry| {
+            if (std.mem.find(u8, entry, "retrace") != null and std.mem.find(u8, entry, "--remove") != null)
+                return 0;
             try db.createTable(init.gpa, dir);
             try db.insert(init.gpa, dir, entry);
             if (config.max_commands_per_dir != 0)
@@ -163,7 +165,6 @@ pub fn main(init: std.process.Init) !u8 {
             for (res.items) |r| try stdout_writer.print("{s}\n", .{r});
 
             try stdout_writer.flush();
-
         },
         .remove => |entry| {
             try db.deleteCommand(init.gpa, entry);
